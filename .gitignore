@@ -2,3 +2,4 @@
 auth/credentials.json
 auth/token.json
 __pycache__
+data/

@@ -25,7 +25,7 @@ from rich.table import Table
 from rich import box
 
 from src.groq_client import parse_task
-from src.scheduler import find_slot, ScheduleResult
+from src.scheduler import find_slot, ScheduleResult, SEARCH_DAYS
 from src.calendar_client import get_events, insert_event, delete_event, update_event_time
 from config import TASKS_PATH, BLOCKED_PATH, TIMEZONE
 
@@ -99,7 +99,7 @@ def add(
     # 2. Fetch calendar events
     app.print("[bold cyan]⟳[/bold cyan]  Fetching Google Calendar…")
     try:
-        gcal_events = get_events(timezone=TIMEZONE)
+        gcal_events = get_events(SEARCH_DAYS, timezone=TIMEZONE)
     except Exception as e:
         err.print(f"[red]✗ Calendar fetch failed:[/red] {e}")
         raise typer.Exit(1)
@@ -227,7 +227,7 @@ def reschedule(
 
     # Fetch fresh calendar state
     app.print("[bold cyan]⟳[/bold cyan]  Fetching Google Calendar…")
-    gcal_events = get_events(timezone=TIMEZONE)
+    gcal_events = get_events(SEARCH_DAYS, timezone=TIMEZONE)
 
     # Exclude the task's own current event from busy intervals
     if task.get("gcal_event_id"):
@@ -375,7 +375,8 @@ def blocked_remove(
 def _load_blocked() -> list[dict]:
     if not BLOCKED_PATH.exists():
         return []
-    return json.loads(BLOCKED_PATH.read_text())
+    text = BLOCKED_PATH.read_text().strip()
+    return json.loads(text) if text else []
 
 
 def _save_blocked(blocked: list[dict]) -> None:

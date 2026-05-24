@@ -50,7 +50,7 @@ def get_events(days_ahead: int, timezone: str) -> list[dict]:
     time_max = (now + timedelta(days = days_ahead)).isoformat()
 
     try:
-        result = service.events.list(
+        result = service.events().list(
             calendarId = CALENDAR_ID,
             timeMin = time_min,
             timeMax = time_max,

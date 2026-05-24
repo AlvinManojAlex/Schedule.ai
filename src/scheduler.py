@@ -108,7 +108,7 @@ def find_slot(task: dict, gcal_events: list[dict], blocked_path: Path, timezone:
         if search_end <= now:
             return ScheduleResult(
                 success = False,
-                failure_reasoning = "deadline_too_tight",
+                failure_reason = "deadline_too_tight",
                 reasoning=(
                     f"Deadline is {deadline.strftime('%a %b %d at %H:%M')} but task needs {task['duration_minutes']} min."
                 ),
@@ -123,7 +123,7 @@ def find_slot(task: dict, gcal_events: list[dict], blocked_path: Path, timezone:
     if not free_slots:
         return ScheduleResult(
             success = False,
-            failure_reasoning = "no_free_slot" if not deadline else "no_slot_before_deadline",
+            failure_reason = "no_free_slot" if not deadline else "no_slot_before_deadline",
             reasoning = (
                 "No free slot large enough for this task was found in the search window"
             ),

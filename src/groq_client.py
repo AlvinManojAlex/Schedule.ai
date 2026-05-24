@@ -15,7 +15,7 @@ def _load_prompt(current_datetime: str, user_timezone: str) -> str:
 
     return template.replace("{current_datetime}", current_datetime).replace("{user_timezone}", user_timezone)
 
-def parse_text(raw_input: str, timezone: str) -> dict:
+def parse_task(raw_input: str, timezone: str) -> dict:
     """
         Send raw natural language to Groq and return a validated task dict.
         Raises ValueError if Groq returns unparseable output
@@ -38,7 +38,6 @@ def parse_text(raw_input: str, timezone: str) -> dict:
         max_tokens = 512,
     )
 
-    print(response)
     raw_json = response.choices[0].message.content.strip()
 
     # strip unneccesary markdown fences if the model wraps output

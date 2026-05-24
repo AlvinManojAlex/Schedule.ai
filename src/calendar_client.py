@@ -127,11 +127,11 @@ def insert_event(task: dict, scheduled_start: datetime, timezone: str) -> str:
         "summary": task["title"],
         "description": "\n".join(description_lines),
         "start": {
-            "dateTime": scheduled_start.isoformat,
+            "dateTime": scheduled_start.isoformat(),
             "timeZone": timezone
         },
         "end": {
-            "dateTime": scheduled_end.isoformat,
+            "dateTime": scheduled_end.isoformat(),
             "timeZone": timezone
         },
         "reminders": {

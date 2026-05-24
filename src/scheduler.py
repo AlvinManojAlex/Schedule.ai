@@ -96,7 +96,7 @@ def find_slot(task: dict, gcal_events: list[dict], blocked_path: Path, timezone:
     duration = timedelta(minutes = task["duration_minutes"])
     deadline = _parse_dt(task["deadline"], tz) if task["deadline"] else None
     priority = task.get("priority", "medium")
-    pref_tod = task.get("preffered_time_of_day", "any")
+    pref_tod = task.get("preferred_time_of_day", "any")
 
     # Determine search window
     search_end = now + timedelta(days = PRIORITY_SEARCH_DAYS[priority])
@@ -277,7 +277,7 @@ def _build_reasoning(slot: FreeSlot, pref_tod: str, deadline: datetime | None, a
     lines = []
 
     slot_str = slot.start.strftime("%A %b %d at %H:%M")
-    list.append(f"Scheduled for {slot_str}")
+    lines.append(f"Scheduled for {slot_str}")
 
     fallback = getattr(slot, "_fallback_used", False)
     if fallback:

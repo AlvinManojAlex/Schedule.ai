@@ -145,7 +145,7 @@ def find_slot(task: dict, gcal_events: list[dict], blocked_path: Path, timezone:
         )
     
     # score and pick best slot
-    best = _pick_best_slot(free_slots, pref_tod, deadline, now, tz, duration)
+    best = _pick_best_slot(free_slots, pref_tod, deadline, now, tz, duration, priority)
 
     reasoning = _build_reasoning(best, pref_tod, deadline, free_slots)
 
@@ -247,12 +247,12 @@ def _get_free_slots(window_start: datetime, window_end: datetime, busy: list[Int
     return free
 
 # function to score free slots and pick the best one
-def _pick_best_slot(slots: list[FreeSlot], pref_tod: str, deadline: datetime | None, now: datetime, tz: ZoneInfo, duration: timedelta) -> FreeSlot:
+def _pick_best_slot(slots: list[FreeSlot], pref_tod: str, deadline: datetime | None, now: datetime, tz: ZoneInfo, duration: timedelta, priority: str = "medium") -> FreeSlot:
     """
-        Lower score is better slot
-        - time of day match: filter to preferred slots first, fall back to all
-        - deadline pressure: 0-50, penalise slots closer to the deadline
-        - proximity to now: 0-30, sooner is better within candidates
+        Lower score is better slot.
+        Scoring: minimise distance from a priority-based target time so that
+        high-priority tasks schedule ASAP and lower-priority tasks schedule
+        closer to (but before) their deadline.
     """
 
     pref_window = TIME_OF_DAY_WINDOWS[pref_tod]
@@ -269,17 +269,26 @@ def _pick_best_slot(slots: list[FreeSlot], pref_tod: str, deadline: datetime | N
     candidates = preferred_slots if preferred_slots else slots
     fallback_used = not preferred_slots and pref_tod != 'any'
 
-    total_window = (slots[-1].start - now).total_seconds() or 1
+    # Target fraction of the search window at which to schedule based on priority:
+    #   high   → 0.0  (ASAP)
+    #   medium → 0.5  (midway to deadline / end of search window)
+    #   low    → 0.75 (later, close to deadline)
+    target_fractions = {"high": 0.0, "medium": 0.5, "low": 0.75}
+    fraction = target_fractions.get(priority, 0.5)
+    total_window_secs = (slots[-1].start - now).total_seconds() or 1
+    target_time = now + timedelta(seconds=total_window_secs * fraction)
 
     def score(slot: FreeSlot) -> float:
-        proximity = (slot.start - now).total_seconds() / total_window * 30
+        # Primary: distance from the ideal target time
+        distance = abs((slot.start - target_time).total_seconds()) / total_window_secs * 100
 
-        deadline_score = 0.0
+        # Secondary: small penalty for cutting it close to the deadline
+        deadline_penalty = 0.0
         if deadline:
-            time_to_deadline = (deadline - slot.start).total_seconds()
+            time_left = (deadline - slot.start).total_seconds()
             total_time = (deadline - now).total_seconds() or 1
-            deadline_score = (1 - time_to_deadline / total_time) * 50
-        return proximity + deadline_score
+            deadline_penalty = max(0.0, 1 - time_left / total_time) * 20
+        return distance + deadline_penalty
 
     best = min(candidates, key=score)
 

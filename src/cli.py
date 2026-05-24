@@ -105,6 +105,8 @@ def add(
         err.print(f"[red]✗ Calendar fetch failed:[/red] {e}")
         raise typer.Exit(1)
 
+    _auto_sync(gcal_events)
+
     # 3. Find slot
     result: ScheduleResult = find_slot(
         task=task,
@@ -229,6 +231,8 @@ def reschedule(
     # Fetch fresh calendar state
     app.print("[bold cyan]⟳[/bold cyan]  Fetching Google Calendar…")
     gcal_events = get_events(SEARCH_DAYS, timezone=TIMEZONE)
+
+    _auto_sync(gcal_events)
 
     # Exclude the task's own current event from busy intervals
     if task.get("gcal_event_id"):
@@ -373,6 +377,23 @@ def blocked_remove(
     app.print(f"[bold green]✓[/bold green]  Removed block: [bold]{label}[/bold]")
 
 
+def _auto_sync(gcal_events: list[dict]) -> int:
+    """Remove tasks whose GCal event no longer exists. Returns count removed."""
+    tasks = _load_tasks()
+    live_ids = {ev["id"] for ev in gcal_events}
+    surviving = []
+    removed = 0
+    for t in tasks:
+        if t.get("status") == "scheduled" and t.get("gcal_event_id") and t["gcal_event_id"] not in live_ids:
+            app.print(f"[dim]Synced: removed '[bold]{t['title']}[/bold]' (calendar event deleted).[/dim]")
+            removed += 1
+        else:
+            surviving.append(t)
+    if removed:
+        _save_tasks(surviving)
+    return removed
+
+
 def _load_blocked() -> list[dict]:
     if not BLOCKED_PATH.exists():
         return []
@@ -383,6 +404,25 @@ def _load_blocked() -> list[dict]:
 def _save_blocked(blocked: list[dict]) -> None:
     BLOCKED_PATH.parent.mkdir(parents=True, exist_ok=True)
     BLOCKED_PATH.write_text(json.dumps(blocked, indent=2))
+
+
+# ---------------------------------------------------------------------------
+# Command: sync
+# ---------------------------------------------------------------------------
+
+@cli.command()
+def sync():
+    """Remove tasks whose Google Calendar events have been manually deleted."""
+    app.print("[bold cyan]⟳[/bold cyan]  Fetching Google Calendar…")
+    try:
+        gcal_events = get_events(SEARCH_DAYS, timezone=TIMEZONE)
+    except Exception as e:
+        err.print(f"[red]✗ Calendar fetch failed:[/red] {e}")
+        raise typer.Exit(1)
+
+    removed = _auto_sync(gcal_events)
+    if removed == 0:
+        app.print("[dim]All tasks are in sync — nothing removed.[/dim]")
 
 
 # ---------------------------------------------------------------------------

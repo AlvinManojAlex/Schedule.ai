@@ -35,7 +35,14 @@ cli     = typer.Typer(
     name="schedule",
     help="Schedule.ai — AI-powered task scheduler linked to Google Calendar.",
     add_completion=False,
+    invoke_without_command=True,
 )
+
+@cli.callback(invoke_without_command=True)
+def _default(ctx: typer.Context):
+    """Launch interactive mode when no subcommand is given."""
+    if ctx.invoked_subcommand is None:
+        interactive()
 
 
 # ---------------------------------------------------------------------------
@@ -86,6 +93,11 @@ def add(
     dry_run: bool = typer.Option(False, "--dry-run", "-d", help="Find a slot but don't create the Calendar event"),
 ):
     """Parse a task with Groq and schedule it on Google Calendar."""
+    _schedule_task(description, verbose=verbose, dry_run=dry_run)
+
+
+def _schedule_task(description: str, verbose: bool = False, dry_run: bool = False) -> bool:
+    """Core scheduling logic. Returns True if a task was successfully scheduled."""
 
     # 1. Parse with Groq
     app.print("\n[bold cyan]⟳[/bold cyan]  Parsing task with Groq…")
@@ -93,7 +105,7 @@ def add(
         task = parse_task(description, timezone=TIMEZONE)
     except ValueError as e:
         err.print(f"[red]✗ Groq parsing failed:[/red] {e}")
-        raise typer.Exit(1)
+        return False
 
     _print_task_summary(task, verbose)
 
@@ -103,7 +115,7 @@ def add(
         gcal_events = get_events(SEARCH_DAYS, timezone=TIMEZONE)
     except Exception as e:
         err.print(f"[red]✗ Calendar fetch failed:[/red] {e}")
-        raise typer.Exit(1)
+        return False
 
     _auto_sync(gcal_events)
 
@@ -118,7 +130,7 @@ def add(
     if not result.success:
         err.print(f"\n[red]✗ Could not schedule:[/red] {result.reasoning}")
         _suggest_fix(result.failure_reason)
-        raise typer.Exit(1)
+        return False
 
     slot = result.slot
     app.print(f"\n[bold green]✓ Slot found:[/bold green] {_fmt_slot(slot, task['duration_minutes'])}")
@@ -126,20 +138,20 @@ def add(
 
     if dry_run:
         app.print("\n[yellow]Dry run — no event created.[/yellow]")
-        return
+        return False
 
     # 4. Confirm with user
     confirmed = typer.confirm("\nCreate this Calendar event?", default=True)
     if not confirmed:
         app.print("[dim]Cancelled.[/dim]")
-        return
+        return False
 
     # 5. Insert into Google Calendar
     try:
         gcal_id = insert_event(task, slot.start, timezone=TIMEZONE)
     except Exception as e:
         err.print(f"[red]✗ Calendar insert failed:[/red] {e}")
-        raise typer.Exit(1)
+        return False
 
     # 6. Persist task
     task["scheduled_start"] = slot.start.isoformat()
@@ -151,6 +163,35 @@ def add(
     _save_tasks(_prune_old_tasks(tasks))
 
     app.print(f"\n[bold green]✓ Scheduled![/bold green]  '{task['title']}' added to your calendar.")
+    return True
+
+
+# ---------------------------------------------------------------------------
+# Command: interactive
+# ---------------------------------------------------------------------------
+
+@cli.command()
+def interactive():
+    """Start an interactive session — enter tasks one by one, quit to exit."""
+    app.print("\n[bold cyan]Schedule.ai[/bold cyan]  Interactive mode")
+    app.print("[dim]Enter a task in plain English, or type 'quit' to exit.[/dim]\n")
+
+    while True:
+        try:
+            raw = typer.prompt("Task")
+        except (KeyboardInterrupt, EOFError):
+            app.print("\n[dim]Goodbye.[/dim]")
+            break
+
+        raw = raw.strip()
+        if not raw:
+            continue
+        if raw.lower() in ("quit", "exit", "q", ":q"):
+            app.print("[dim]Goodbye.[/dim]")
+            break
+
+        _schedule_task(raw)
+        app.print()
 
 
 # ---------------------------------------------------------------------------

@@ -114,11 +114,26 @@ def find_slot(task: dict, gcal_events: list[dict], blocked_path: Path, timezone:
                 ),
             )
         
-    # build busy timeline
+    # build busy timeline (all-day events excluded — handled via date filter below)
     busy = _build_busy_intervals(gcal_events, blocked_path, now, search_end, tz)
 
     # get free slots
     free_slots = _get_free_slots(now, search_end, busy, duration)
+
+    # block entire days that have all-day calendar events (holidays, PTO, etc.)
+    # done as a post-filter rather than interval merging to avoid midnight boundary
+    # bleed where all-day 00:00-23:59 merges with adjacent sleep blocks
+    all_day_dates = {
+        _parse_dt(ev["start"], tz).date()
+        for ev in gcal_events
+        if ev.get("all_day")
+    }
+    if all_day_dates:
+        free_slots = [
+            s for s in free_slots
+            if s.start.astimezone(tz).date() not in all_day_dates
+        ]
+
 
     if not free_slots:
         return ScheduleResult(
@@ -130,7 +145,7 @@ def find_slot(task: dict, gcal_events: list[dict], blocked_path: Path, timezone:
         )
     
     # score and pick best slot
-    best = _pick_best_slot(free_slots, pref_tod, deadline, now, tz)
+    best = _pick_best_slot(free_slots, pref_tod, deadline, now, tz, duration)
 
     reasoning = _build_reasoning(best, pref_tod, deadline, free_slots)
 
@@ -143,8 +158,10 @@ def _build_busy_intervals(gcal_events: list[dict], blocked_path: Path, window_st
     """
     intervals: list[Interval] = []
 
-    # google calendar events
+    # timed calendar events (all-day events are handled separately in find_slot)
     for ev in gcal_events:
+        if ev.get("all_day"):
+            continue
         start = _parse_dt(ev["start"], tz)
         end = _parse_dt(ev["end"], tz)
         if start < window_end and end > window_start:
@@ -230,18 +247,25 @@ def _get_free_slots(window_start: datetime, window_end: datetime, busy: list[Int
     return free
 
 # function to score free slots and pick the best one
-def _pick_best_slot(slots: list[FreeSlot], pref_tod: str, deadline: datetime | None, now: datetime, tz: ZoneInfo) -> FreeSlot:
+def _pick_best_slot(slots: list[FreeSlot], pref_tod: str, deadline: datetime | None, now: datetime, tz: ZoneInfo, duration: timedelta) -> FreeSlot:
     """
         Lower score is better slot
-        - time of day match: 0 for match, 100 for no match
-        - deadline pressure: 0-50, schedule early so reward earlier slots
-        - proximity to now: 0-30, sooner better but not at cost of preference
+        - time of day match: filter to preferred slots first, fall back to all
+        - deadline pressure: 0-50, penalise slots closer to the deadline
+        - proximity to now: 0-30, sooner is better within candidates
     """
 
     pref_window = TIME_OF_DAY_WINDOWS[pref_tod]
-    preferred_slots = [s for s in slots if _slot_in_window(s, pref_window, tz)]
 
-    # if preferred slot exist, then only score those. Otherwise fallback to all slots
+    # Build preferred candidates: slots that contain a task-sized chunk within the window.
+    # Adjust each candidate's start to the effective window start so the event lands
+    # at the right time (e.g. 07:00) rather than at the raw slot start (e.g. 06:30).
+    preferred_slots = []
+    for s in slots:
+        effective_start = _effective_start_in_window(s, pref_window, tz, duration)
+        if effective_start is not None:
+            preferred_slots.append(FreeSlot(effective_start, s.end))
+
     candidates = preferred_slots if preferred_slots else slots
     fallback_used = not preferred_slots and pref_tod != 'any'
 
@@ -252,25 +276,40 @@ def _pick_best_slot(slots: list[FreeSlot], pref_tod: str, deadline: datetime | N
 
         deadline_score = 0.0
         if deadline:
-            time_to_deadline = (deadline - now).total_seconds()
+            time_to_deadline = (deadline - slot.start).total_seconds()
             total_time = (deadline - now).total_seconds() or 1
             deadline_score = (1 - time_to_deadline / total_time) * 50
         return proximity + deadline_score
-    
-    best = min(candidates, key = score)
 
-    # tag whether fallback was used (for reasoning purpose)
+    best = min(candidates, key=score)
+
     best._fallback_used = fallback_used
     best._preferred_slots_count = len(preferred_slots)
 
     return best
 
-def _slot_in_window(slot: FreeSlot, window: tuple[time, time], tz: ZoneInfo) -> bool:
+
+def _effective_start_in_window(slot: FreeSlot, window: tuple[time, time], tz: ZoneInfo, duration: timedelta) -> datetime | None:
     """
-        True if the slot's start time falls within the time-of-day window
+    Return the earliest start time at which the task fits within the preferred
+    time-of-day window inside this free slot, or None if it doesn't fit.
+
+    This handles slots that start before the window opens (e.g. a free slot
+    starting at 06:30 can still host a morning task starting at 07:00).
     """
-    local_start = slot.start.astimezone(tz).time()
-    return window[0] <= local_start < window[1]
+    local_start = slot.start.astimezone(tz)
+    local_end   = slot.end.astimezone(tz)
+
+    win_start = local_start.replace(hour=window[0].hour, minute=window[0].minute, second=0, microsecond=0)
+    win_end   = local_start.replace(hour=window[1].hour, minute=window[1].minute, second=0, microsecond=0)
+
+    # Effective task start: no earlier than the window opens, no earlier than the slot
+    effective = max(local_start, win_start)
+
+    # Task must finish within both the preferred window and the free slot
+    if effective < win_end and effective + duration <= win_end and effective + duration <= local_end:
+        return effective.astimezone(slot.start.tzinfo)
+    return None
 
 # function to build human-readable reasoning
 def _build_reasoning(slot: FreeSlot, pref_tod: str, deadline: datetime | None, all_slots: list[FreeSlot]) -> str:

@@ -45,7 +45,8 @@ cli     = typer.Typer(
 def _load_tasks() -> list[dict]:
     if not TASKS_PATH.exists():
         return []
-    return json.loads(TASKS_PATH.read_text())
+    text = TASKS_PATH.read_text().strip()
+    return json.loads(text) if text else []
 
 
 def _save_tasks(tasks: list[dict]) -> None:

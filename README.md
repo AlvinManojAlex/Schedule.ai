@@ -1,6 +1,82 @@
 # Schedule.ai
 
-An AI-powered task scheduler that is directly linked to your Google Calendar using Groq API.
+A terminal based personal task scheduler that uses Groq's LLM API to parse task descriptions, resolves optimal calendar slots and schedules the result via Google Calendar API.
+
+## Setup
+
+### Prerequisites
+
+- Python 3.11+
+- A [Groq API key](https://console.groq.com)
+- A Google Cloud project with the Calendar API enabled and an OAuth 2.0 Desktop credentials
+
+### Installation
+
+```bash
+pip install -r requirements.txt
+```
+
+Create a `.env` file in the project root:
+
+```
+GROQ_API_KEY=your_key_here
+```
+
+Place your Google OAuth credential file at `auth/credentials.json` (download from Google Cloud Console → APIs & Services → Credentials).
+
+Set your timezone in `config.py`:
+
+```python
+TIMEZONE = "America/New_York"   # IANA format
+```
+
+On first run, a browser window will open for Google Calendar OAuth consent. The token is saved to `auth/token.json` automatically.
+
+## Usage
+
+### Interactive mode (recommended)
+
+```bash
+python main.py
+```
+
+Launches a REPL — type tasks in plain English, enter `quit` or `exit` to exit.
+
+### Single task
+
+```bash
+python main.py add "finish the report by Thursday, ~2 hours, morning"
+python main.py add "call dentist, 30 min" --dry-run     # find slot, don't create event
+python main.py add "urgent fix by tomorrow" --verbose   # show Groq reasoning
+```
+
+### Managing tasks
+
+```bash
+python main.py list                      # all tasks
+python main.py list --status pending     # filter by status
+python main.py reschedule <task-id>      # find a new slot and move the calendar event
+python main.py done <task-id>            # mark done + delete calendar event
+python main.py done <task-id> --keep-event
+```
+
+### Blocked times
+
+Blocked times are recurring windows (sleep, classes, etc.) the scheduler will never place tasks into.
+
+```bash
+python main.py blocked add --label "Sleep" --days mon,tue,wed,thu,fri,sat,sun --start 23:00 --end 07:00
+python main.py blocked list
+python main.py blocked remove "Sleep"
+```
+
+### Sync & cleanup
+
+```bash
+python main.py sync          # remove tasks whose calendar events were manually deleted
+python main.py clear         # remove completed tasks older than 7 days
+python main.py clear --force # skip confirmation
+```
 
 ## Design
 

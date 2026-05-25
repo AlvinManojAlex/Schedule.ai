@@ -126,6 +126,7 @@ def insert_event(task: dict, scheduled_start: datetime, timezone: str) -> str:
     event_body = {
         "summary": task["title"],
         "description": "\n".join(description_lines),
+        "colorId": "5",  # Banana (yellow) — distinguishes schedule.ai events
         "start": {
             "dateTime": scheduled_start.isoformat(),
             "timeZone": timezone

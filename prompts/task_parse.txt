@@ -59,9 +59,13 @@ deadline_confidence
   - "none" → no deadline signal whatsoever in the input
 
 priority
-  - "high"   → words like urgent, ASAP, critical, important, must, due soon, or a deadline within 24h
-  - "low"    → words like whenever, someday, eventually, low priority, no rush
-  - "medium" → everything else (default)
+  - "high"   → explicit urgency: urgent, ASAP, critical, important, must, due soon, or a deadline within 24h
+  - "low"    → explicit relaxedness: whenever, someday, eventually, low priority, no rush; or routine tasks with no deadline
+  - "medium" → tasks with moderate importance or a deadline in 1–7 days
+  - When no explicit priority signals exist, use your judgment:
+      - Quick, low-stakes tasks (emails, short replies) → tend toward "low"
+      - Substantive work with a deadline or clear stake → tend toward "medium" or "high"
+      - Never pick "medium" just because no other rule matched — reason from the task's nature
 
 preferred_time_of_day
   - "morning"   → before noon: "in the morning", "early", "before lunch"
@@ -81,6 +85,7 @@ explicit_start_time
 groq_reasoning
   - 1-3 sentences. Explain any non-obvious decisions: how you resolved an ambiguous deadline,
     why you chose a certain duration, what made you pick a priority level.
+  - Always explain priority when it was inferred from context (no urgency/relaxedness keywords present).
   - Skip obvious extractions. Only note decisions that could surprise the user.
 
 ---

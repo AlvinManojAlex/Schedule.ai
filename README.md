@@ -13,8 +13,10 @@ A terminal based personal task scheduler that uses Groq's LLM API to parse task 
 ### Installation
 
 ```bash
-pip install -r requirements.txt
+pip install -e .
 ```
+
+This installs the package in editable mode and registers a `schedule` command globally, so you can run it from any directory. Any edits you make to the source are picked up immediately without reinstalling.
 
 Create a `.env` file in the project root:
 
@@ -37,7 +39,7 @@ On first run, a browser window will open for Google Calendar OAuth consent. The 
 ### Interactive mode (recommended)
 
 ```bash
-python main.py
+schedule
 ```
 
 Launches a REPL — type tasks in plain English, enter `quit` or `exit` to exit.
@@ -45,19 +47,19 @@ Launches a REPL — type tasks in plain English, enter `quit` or `exit` to exit.
 ### Single task
 
 ```bash
-python main.py add "finish the report by Thursday, ~2 hours, morning"
-python main.py add "call dentist, 30 min" --dry-run     # find slot, don't create event
-python main.py add "urgent fix by tomorrow" --verbose   # show Groq reasoning
+schedule add "finish the report by Thursday, ~2 hours, morning"
+schedule add "call dentist, 30 min" --dry-run     # find slot, don't create event
+schedule add "urgent fix by tomorrow" --verbose   # show Groq reasoning
 ```
 
 ### Managing tasks
 
 ```bash
-python main.py list                      # all tasks
-python main.py list --status pending     # filter by status
-python main.py reschedule <task-id>      # find a new slot and move the calendar event
-python main.py done <task-id>            # mark done + delete calendar event
-python main.py done <task-id> --keep-event
+schedule list                      # all tasks
+schedule list --status pending     # filter by status
+schedule reschedule <task-id>      # find a new slot and move the calendar event
+schedule done <task-id>            # mark done + delete calendar event
+schedule done <task-id> --keep-event
 ```
 
 ### Blocked times
@@ -65,17 +67,17 @@ python main.py done <task-id> --keep-event
 Blocked times are recurring windows (sleep, classes, etc.) the scheduler will never place tasks into.
 
 ```bash
-python main.py blocked add --label "Sleep" --days mon,tue,wed,thu,fri,sat,sun --start 23:00 --end 07:00
-python main.py blocked list
-python main.py blocked remove "Sleep"
+schedule blocked add --label "Sleep" --days mon,tue,wed,thu,fri,sat,sun --start 23:00 --end 07:00
+schedule blocked list
+schedule blocked remove "Sleep"
 ```
 
 ### Sync & cleanup
 
 ```bash
-python main.py sync          # remove tasks whose calendar events were manually deleted
-python main.py clear         # remove completed tasks older than 7 days
-python main.py clear --force # skip confirmation
+schedule sync          # remove tasks whose calendar events were manually deleted
+schedule clear         # remove completed tasks older than 7 days
+schedule clear --force # skip confirmation
 ```
 
 ## Design

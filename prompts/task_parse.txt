@@ -72,6 +72,7 @@ preferred_time_of_day
   - "afternoon" → 12:00–17:00: "after lunch", "in the afternoon", "midday"
   - "evening"   → after 17:00: "tonight", "in the evening", "after work", "after dinner"
   - "any"       → no time preference stated (default)
+  - Do NOT infer this from the deadline time. "by 8pm" is a deadline, not a time-of-day preference — return "any".
   - When explicit_start_time is set, still fill this to match the window (e.g. 17:00 → "evening").
 
 explicit_start_time

@@ -525,6 +525,8 @@ def _print_task_summary(task: dict, verbose: bool) -> None:
     app.print(f"  Deadline  : {deadline}{conf}")
     app.print(f"  Priority  : {task.get('priority')}")
     app.print(f"  Preferred : {task.get('preferred_time_of_day')}")
+    if task.get("explicit_start_time"):
+        app.print(f"  Pinned start : {_fmt_dt(task['explicit_start_time'])}")
 
     if verbose and task.get("groq_reasoning"):
         app.print(f"  Reasoning : [dim italic]{task['groq_reasoning']}[/dim italic]")

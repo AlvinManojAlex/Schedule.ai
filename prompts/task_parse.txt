@@ -17,6 +17,7 @@ Your reasoning goes inside the "groq_reasoning" field only.
   "deadline_confidence": "explicit" | "inferred" | "none",
   "priority": "low" | "medium" | "high",
   "preferred_time_of_day": "morning" | "afternoon" | "evening" | "any",
+  "explicit_start_time": string | null,
   "groq_reasoning": string
 }
 
@@ -43,6 +44,8 @@ deadline
   - If the user gives a date but no time, set deadline to 23:59:00 that day.
   - If the user gives a time but no date, assume today if that time hasn't passed, else tomorrow.
   - Return null only if deadline_confidence is "none".
+  - Do NOT use this for explicit start time phrasing like "at 5pm", "schedule for 3pm", "put it at X".
+    Those belong in explicit_start_time instead.
 
 deadline_confidence
   - "explicit"  → user stated a specific date, time, or named day (e.g. "by Friday", "at 3pm", "tomorrow")
@@ -65,6 +68,15 @@ preferred_time_of_day
   - "afternoon" → 12:00–17:00: "after lunch", "in the afternoon", "midday"
   - "evening"   → after 17:00: "tonight", "in the evening", "after work", "after dinner"
   - "any"       → no time preference stated (default)
+  - When explicit_start_time is set, still fill this to match the window (e.g. 17:00 → "evening").
+
+explicit_start_time
+  - Set this when the user pins a specific START time for the task.
+  - Use for phrasing like "at 5pm", "schedule it for 3pm", "I want to do it at X", "put it at X".
+  - Return as ISO 8601 in the user's local timezone: "YYYY-MM-DDTHH:MM:SS"
+  - If the user gives a time but no date, assume today if that time hasn't passed, else tomorrow.
+  - Do NOT set this for deadline language ("by X", "before X", "due X", "finish by X") — those go in deadline.
+  - Return null if the user hasn't pinned a specific start time.
 
 groq_reasoning
   - 1-3 sentences. Explain any non-obvious decisions: how you resolved an ambiguous deadline,
@@ -108,7 +120,34 @@ Output:
   "deadline_confidence": "inferred",
   "priority": "low",
   "preferred_time_of_day": "any",
+  "explicit_start_time": null,
   "groq_reasoning": "'Eventually' inferred as +14 days. 'Eventually' and no urgency cues → low priority. Reading default of 60 minutes applied."
+}
+
+Input: "Create a task today at 5pm"
+Output:
+{
+  "title": "Task",
+  "duration_minutes": 30,
+  "deadline": null,
+  "deadline_confidence": "none",
+  "priority": "medium",
+  "preferred_time_of_day": "evening",
+  "explicit_start_time": "2025-04-23T17:00:00",
+  "groq_reasoning": "User specified an explicit start time of 5pm today. This is a pinned start time, not a deadline."
+}
+
+Input: "Finish the report by 5pm today"
+Output:
+{
+  "title": "Finish report",
+  "duration_minutes": 60,
+  "deadline": "2025-04-23T17:00:00",
+  "deadline_confidence": "explicit",
+  "priority": "high",
+  "preferred_time_of_day": "any",
+  "explicit_start_time": null,
+  "groq_reasoning": "'By 5pm' is deadline language, not a pinned start time. Deadline set to 17:00 today."
 }
 
 ---

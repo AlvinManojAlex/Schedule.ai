@@ -98,6 +98,30 @@ def find_slot(task: dict, gcal_events: list[dict], blocked_path: Path, timezone:
     priority = task.get("priority", "medium")
     pref_tod = task.get("preferred_time_of_day", "any")
 
+    # If the user pinned an explicit start time, honour it directly
+    explicit_start = _parse_dt(task["explicit_start_time"], tz) if task.get("explicit_start_time") else None
+    if explicit_start is not None:
+        if explicit_start < now:
+            return ScheduleResult(
+                success=False,
+                failure_reason="no_free_slot",
+                reasoning=f"Requested start time {explicit_start.strftime('%a %b %d at %H:%M')} is in the past.",
+            )
+        pinned_end = explicit_start + duration
+        busy = _build_busy_intervals(gcal_events, blocked_path, explicit_start, pinned_end, tz)
+        conflict = any(iv.start < pinned_end and iv.end > explicit_start for iv in busy)
+        if conflict:
+            return ScheduleResult(
+                success=False,
+                failure_reason="no_free_slot",
+                reasoning=f"Your requested time {explicit_start.strftime('%a %b %d at %H:%M')} conflicts with an existing event or blocked period.",
+            )
+        return ScheduleResult(
+            success=True,
+            slot=FreeSlot(explicit_start, pinned_end),
+            reasoning=f"Scheduled at your requested time: {explicit_start.strftime('%a %b %d at %H:%M')}",
+        )
+
     # Determine search window
     search_end = now + timedelta(days = PRIORITY_SEARCH_DAYS[priority])
 

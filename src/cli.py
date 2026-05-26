@@ -135,6 +135,8 @@ def _schedule_task(description: str, verbose: bool = False, dry_run: bool = Fals
     slot = result.slot
     app.print(f"\n[bold green]✓ Slot found:[/bold green] {_fmt_slot(slot, task['duration_minutes'])}")
     app.print(f"  [dim]{result.reasoning}[/dim]")
+    if task.get("groq_reasoning"):
+        app.print(f"  [dim italic]{task['groq_reasoning']}[/dim italic]")
 
     if dry_run:
         app.print("\n[yellow]Dry run — no event created.[/yellow]")

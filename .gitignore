@@ -3,4 +3,8 @@
 auth/credentials.json
 auth/token.json
 __pycache__
+*.egg-info/
+*.egg-info
+dist/
+build/
 data/

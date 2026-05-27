@@ -125,11 +125,18 @@ def find_slot(task: dict, gcal_events: list[dict], blocked_path: Path, timezone:
     # Determine search window
     search_end = now + timedelta(days = PRIORITY_SEARCH_DAYS[priority])
 
+    # If deadline is end-of-tomorrow (23:59), the user said "tomorrow" — don't schedule before then
+    tomorrow_start = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    if deadline and deadline.date() == tomorrow_start.date() and deadline.time() == time(23, 59):
+        window_start = tomorrow_start
+    else:
+        window_start = now
+
     if deadline:
         # never schedule past the deadline
         search_end = min(search_end, deadline - duration)
 
-        if search_end <= now:
+        if search_end <= window_start:
             return ScheduleResult(
                 success = False,
                 failure_reason = "deadline_too_tight",
@@ -137,12 +144,12 @@ def find_slot(task: dict, gcal_events: list[dict], blocked_path: Path, timezone:
                     f"Deadline is {deadline.strftime('%a %b %d at %H:%M')} but task needs {task['duration_minutes']} min."
                 ),
             )
-        
+
     # build busy timeline (all-day events excluded — handled via date filter below)
-    busy = _build_busy_intervals(gcal_events, blocked_path, now, search_end, tz)
+    busy = _build_busy_intervals(gcal_events, blocked_path, window_start, search_end, tz)
 
     # get free slots
-    free_slots = _get_free_slots(now, search_end, busy, duration)
+    free_slots = _get_free_slots(window_start, search_end, busy, duration)
 
     # block entire days that have all-day calendar events (holidays, PTO, etc.)
     # done as a post-filter rather than interval merging to avoid midnight boundary
@@ -169,7 +176,7 @@ def find_slot(task: dict, gcal_events: list[dict], blocked_path: Path, timezone:
         )
     
     # score and pick best slot
-    best = _pick_best_slot(free_slots, pref_tod, deadline, now, tz, duration, priority)
+    best = _pick_best_slot(free_slots, pref_tod, deadline, window_start, tz, duration, priority)
 
     reasoning = _build_reasoning(best, pref_tod, deadline, free_slots)
 

@@ -48,15 +48,19 @@ deadline
     Those belong in explicit_start_time instead.
 
 deadline_confidence
-  - "explicit"  → user stated a specific date, time, or named day (e.g. "by Friday", "at 3pm", "tomorrow")
+  - "explicit"  → user stated a specific date, time, or named day; apply these rules:
+      "today" / "tonight" / "this morning|afternoon|evening"  → deadline = today at 23:59:00
+      "tomorrow" / "tomorrow morning|afternoon|evening"        → deadline = tomorrow at 23:59:00
+      "[weekday]" / "this [weekday]" / "on [weekday]"         → deadline = that weekday at 23:59:00
+      "next [weekday]"                                         → deadline = that weekday next week at 23:59:00
+      Specific date or time ("by Friday", "due April 30", "before 3pm") → compute exact deadline
   - "inferred"  → user used vague language; apply these inference rules:
       "soon" / "shortly"          → +2 days
       "this week"                 → end of Friday (or Sunday if today is Sat/Sun)
       "next week"                 → end of next Friday
       "ASAP" / "urgent"           → +1 day, also set priority to "high"
       "eventually" / "someday"    → +14 days
-      No deadline language at all → "none", deadline: null
-  - "none" → no deadline signal whatsoever in the input
+  - "none" → no deadline signal whatsoever in the input; set deadline: null
 
 priority
   - "high"   → explicit urgency: urgent, ASAP, critical, important, must, due soon, or a deadline within 24h
@@ -76,11 +80,13 @@ preferred_time_of_day
   - When explicit_start_time is set, still fill this to match the window (e.g. 17:00 → "evening").
 
 explicit_start_time
-  - Set this when the user pins a specific START time for the task.
+  - Set this when the user pins a specific clock START time for the task.
   - Use for phrasing like "at 5pm", "schedule it for 3pm", "I want to do it at X", "put it at X".
   - Return as ISO 8601 in the user's local timezone: "YYYY-MM-DDTHH:MM:SS"
   - If the user gives a time but no date, assume today if that time hasn't passed, else tomorrow.
   - Do NOT set this for deadline language ("by X", "before X", "due X", "finish by X") — those go in deadline.
+  - Do NOT set this for day + time-of-day-word combos like "today evening", "tomorrow morning", "Friday afternoon".
+    Those are NOT pinned clock times — set deadline = end of that day and preferred_time_of_day instead.
   - Return null if the user hasn't pinned a specific start time.
 
 groq_reasoning
@@ -141,6 +147,19 @@ Output:
   "preferred_time_of_day": "evening",
   "explicit_start_time": "2025-04-23T17:00:00",
   "groq_reasoning": "User specified an explicit start time of 5pm today. This is a pinned start time, not a deadline."
+}
+
+Input: "study leetcode today evening 1.5 hours"
+Output:
+{
+  "title": "Study Leetcode",
+  "duration_minutes": 90,
+  "deadline": "2025-04-23T23:59:00",
+  "deadline_confidence": "explicit",
+  "priority": "medium",
+  "preferred_time_of_day": "evening",
+  "explicit_start_time": null,
+  "groq_reasoning": "'Today' is a day reference, not a pinned clock time, so deadline = end of today. 'Evening' is a time-of-day preference, not an explicit start time."
 }
 
 Input: "Finish the report by 5pm today"

@@ -125,9 +125,14 @@ def find_slot(task: dict, gcal_events: list[dict], blocked_path: Path, timezone:
     # Determine search window
     search_end = now + timedelta(days = PRIORITY_SEARCH_DAYS[priority])
 
-    # If deadline is end-of-tomorrow (23:59), the user said "tomorrow" — don't schedule before then
+    not_before_raw = task.get("not_before")
+    not_before = _parse_dt(not_before_raw, tz) if not_before_raw else None
+
+    # Push window_start forward when Groq signals "on [day]", or when deadline is end-of-tomorrow
     tomorrow_start = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-    if deadline and deadline.date() == tomorrow_start.date() and deadline.time() == time(23, 59):
+    if not_before:
+        window_start = max(now, not_before)
+    elif deadline and deadline.date() == tomorrow_start.date() and deadline.time() == time(23, 59):
         window_start = tomorrow_start
     else:
         window_start = now

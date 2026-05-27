@@ -18,6 +18,7 @@ Your reasoning goes inside the "groq_reasoning" field only.
   "priority": "low" | "medium" | "high",
   "preferred_time_of_day": "morning" | "afternoon" | "evening" | "any",
   "explicit_start_time": string | null,
+  "not_before": string | null,
   "groq_reasoning": string
 }
 
@@ -88,6 +89,18 @@ explicit_start_time
   - Do NOT set this for day + time-of-day-word combos like "today evening", "tomorrow morning", "Friday afternoon".
     Those are NOT pinned clock times — set deadline = end of that day and preferred_time_of_day instead.
   - Return null if the user hasn't pinned a specific start time.
+
+not_before
+  - Set ONLY when the user explicitly names the day they want to do the task on, not when they name a deadline.
+  - Key distinction:
+      "on [weekday]"                        → day-pin → SET not_before
+      "[weekday] morning|afternoon|evening" → day-pin → SET not_before
+      "next [weekday] morning|..."          → day-pin → SET not_before
+      "this [weekday]"                      → deadline → DO NOT set not_before
+      "next [weekday]" (no time-of-day)     → deadline → DO NOT set not_before
+      "by [weekday]", "due [weekday]"       → deadline → DO NOT set not_before
+  - Return as ISO 8601 at 00:00:00 of that day in the user's local timezone: "YYYY-MM-DDTHH:MM:SS"
+  - Return null in all other cases.
 
 groq_reasoning
   - 1-3 sentences. Explain any non-obvious decisions: how you resolved an ambiguous deadline,
@@ -173,6 +186,34 @@ Output:
   "preferred_time_of_day": "any",
   "explicit_start_time": null,
   "groq_reasoning": "'By 5pm' is deadline language, not a pinned start time. Deadline set to 17:00 today."
+}
+
+Input: "go for a run next Wednesday morning 45 minutes"
+Output:
+{
+  "title": "Go for a run",
+  "duration_minutes": 45,
+  "deadline": "2025-04-30T23:59:00",
+  "deadline_confidence": "explicit",
+  "priority": "low",
+  "preferred_time_of_day": "morning",
+  "explicit_start_time": null,
+  "not_before": "2025-04-30T00:00:00",
+  "groq_reasoning": "'Next Wednesday morning' pins the task to Wednesday — not_before set to Wednesday 00:00 so the scheduler only searches that day. Running is low-stakes with no urgency."
+}
+
+Input: "review PR next Monday 1 hour"
+Output:
+{
+  "title": "Review PR",
+  "duration_minutes": 60,
+  "deadline": "2025-04-28T23:59:00",
+  "deadline_confidence": "explicit",
+  "priority": "medium",
+  "preferred_time_of_day": "any",
+  "explicit_start_time": null,
+  "not_before": null,
+  "groq_reasoning": "'Next Monday' names a deadline, not a pinned day — not_before is null so the scheduler can find any slot before Monday."
 }
 
 ---

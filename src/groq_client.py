@@ -70,6 +70,7 @@ def _build_task_record(raw_input: str, groq_output: dict) -> dict:
         "priority": groq_output.get("priority", "medium"),
         "preferred_time_of_day": groq_output.get("preferred_time_of_day"),
         "explicit_start_time": groq_output.get("explicit_start_time"),
+        "not_before": groq_output.get("not_before"),
 
         # scheduler.py will fill this later
         "status": "pending",

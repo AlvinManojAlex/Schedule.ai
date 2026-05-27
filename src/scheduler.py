@@ -204,8 +204,10 @@ def _build_busy_intervals(gcal_events: list[dict], blocked_path: Path, window_st
             intervals.append(Interval(start, end).with_buffer())
 
     # recurring blocked times
+    # Start one day before window_start to catch overnight blocks (e.g. sleep 23:00–07:00)
+    # that began the previous day but extend into the window.
     blocked = _load_blocked(blocked_path)
-    current = window_start.date()
+    current = window_start.date() - timedelta(days=1)
     end_date = window_end.date() + timedelta(days = 1)
 
     while current <= end_date:

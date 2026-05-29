@@ -137,6 +137,13 @@ def find_slot(task: dict, gcal_events: list[dict], blocked_path: Path, timezone:
     else:
         window_start = now
 
+    # A pinned day can fall beyond the priority horizon (e.g. medium = 7 days).
+    # Extend the search window to cover that day so it stays reachable; the deadline
+    # cap below still prevents scheduling past the deadline.
+    if not_before:
+        end_of_pinned_day = not_before.replace(hour=23, minute=59, second=0, microsecond=0)
+        search_end = max(search_end, end_of_pinned_day)
+
     if deadline:
         # never schedule past the deadline
         search_end = min(search_end, deadline - duration)

@@ -67,8 +67,8 @@ deadline_confidence
       Specific date or time ("by Friday", "due April 30", "before 3pm") → compute exact deadline
   - "inferred"  → user used vague language; apply these inference rules:
       "soon" / "shortly"          → +2 days
-      "this week"                 → end of Friday (or Sunday if today is Sat/Sun)
-      "next week"                 → end of next Friday
+      "this week"                 → end of Sunday (the coming Sunday, or today if today IS Sunday)
+      "next week"                 → end of next Sunday
       "ASAP" / "urgent"           → +1 day, also set priority to "high"
       "eventually" / "someday"    → +14 days
   - "none" → no deadline signal whatsoever in the input; set deadline: null
@@ -129,11 +129,11 @@ Output:
 {
   "title": "Email professor about project",
   "duration_minutes": 15,
-  "deadline": "2025-04-25T23:59:00",
+  "deadline": "2025-04-27T23:59:00",
   "deadline_confidence": "inferred",
   "priority": "medium",
   "preferred_time_of_day": "any",
-  "groq_reasoning": "'This week' inferred as end of Friday 2025-04-25. Default email duration of 15 minutes applied."
+  "groq_reasoning": "'This week' inferred as end of Sunday 2025-04-27. Default email duration of 15 minutes applied."
 }
 
 Input: "Finish the take-home exam, it's due Thursday at midnight, probably 3 hours, I want to do it in the morning"

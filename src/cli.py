@@ -172,15 +172,23 @@ def _schedule_task(description: str, verbose: bool = False, dry_run: bool = Fals
 # Command: interactive
 # ---------------------------------------------------------------------------
 
+def _prompt_input() -> str:
+    """Render a framed input area and return the raw line the user typed."""
+    app.rule(style="bright_black")
+    raw = app.input("[bold cyan]›[/bold cyan]  ")
+    app.rule(style="bright_black")
+    app.print("[dim]   task · 'blocked' edit blocks · 'quit' exit[/dim]")
+    return raw
+
+
 @cli.command()
 def interactive():
     """Start an interactive session — enter tasks one by one, quit to exit."""
-    app.print("\n[bold cyan]Schedule.ai[/bold cyan]  Interactive mode")
-    app.print("[dim]Enter a task in plain English, type 'blocked' to edit blocked times, or 'quit' to exit.[/dim]\n")
+    app.print("\n[bold cyan]Schedule.ai[/bold cyan]  [dim]Interactive mode[/dim]")
 
     while True:
         try:
-            raw = typer.prompt("Task")
+            raw = _prompt_input()
         except (KeyboardInterrupt, EOFError):
             app.print("\n[dim]Goodbye.[/dim]")
             break
@@ -193,11 +201,9 @@ def interactive():
             break
         if raw.lower() in ("blocked", "block", "blocked times"):
             _blocked_interactive()
-            app.print()
             continue
 
         _schedule_task(raw)
-        app.print()
 
 
 # ---------------------------------------------------------------------------

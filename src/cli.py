@@ -106,6 +106,9 @@ def _schedule_task(description: str, verbose: bool = False, dry_run: bool = Fals
     except ValueError as e:
         err.print(f"[red]✗ Groq parsing failed:[/red] {e}")
         return False
+    except Exception as e:
+        err.print(f"[red]✗ Groq error:[/red] {type(e).__name__}: {e}")
+        return False
 
     _print_task_summary(task, verbose)
 

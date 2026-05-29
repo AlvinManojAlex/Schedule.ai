@@ -176,7 +176,7 @@ def _schedule_task(description: str, verbose: bool = False, dry_run: bool = Fals
 def interactive():
     """Start an interactive session — enter tasks one by one, quit to exit."""
     app.print("\n[bold cyan]Schedule.ai[/bold cyan]  Interactive mode")
-    app.print("[dim]Enter a task in plain English, or type 'quit' to exit.[/dim]\n")
+    app.print("[dim]Enter a task in plain English, type 'blocked' to edit blocked times, or 'quit' to exit.[/dim]\n")
 
     while True:
         try:
@@ -191,6 +191,10 @@ def interactive():
         if raw.lower() in ("quit", "exit", "q", ":q"):
             app.print("[dim]Goodbye.[/dim]")
             break
+        if raw.lower() in ("blocked", "block", "blocked times"):
+            _blocked_interactive()
+            app.print()
+            continue
 
         _schedule_task(raw)
         app.print()
@@ -371,11 +375,9 @@ def blocked_add(
     end:   str = typer.Option(..., "--end",   "-e", help='End time HH:MM, e.g. "07:00"'),
 ):
     """Add a recurring blocked period."""
-    day_list = [d.strip().lower() for d in days.split(",")]
-    valid    = {"mon","tue","wed","thu","fri","sat","sun"}
-    bad      = [d for d in day_list if d not in valid]
-    if bad:
-        err.print(f"[red]✗ Unknown day(s):[/red] {', '.join(bad)}. Use mon/tue/wed/thu/fri/sat/sun.")
+    day_list = _parse_days(days)
+    if day_list is None:
+        err.print("[red]✗ Unknown day(s).[/red] Use mon/tue/wed/thu/fri/sat/sun.")
         raise typer.Exit(1)
 
     blocked = _load_blocked()
@@ -447,6 +449,81 @@ def _load_blocked() -> list[dict]:
 def _save_blocked(blocked: list[dict]) -> None:
     BLOCKED_PATH.parent.mkdir(parents=True, exist_ok=True)
     BLOCKED_PATH.write_text(json.dumps(blocked, indent=2))
+
+
+def _parse_days(days: str) -> list[str] | None:
+    """Return a validated 3-letter day list, or None if any day is invalid."""
+    day_list = [d.strip().lower() for d in days.split(",")]
+    valid    = {"mon","tue","wed","thu","fri","sat","sun"}
+    bad      = [d for d in day_list if d not in valid]
+    return None if bad else day_list
+
+
+def _valid_hhmm(value: str) -> bool:
+    """True if value is a well-formed 24-hour HH:MM time."""
+    try:
+        datetime.strptime(value.strip(), "%H:%M")
+        return True
+    except ValueError:
+        return False
+
+
+def _blocked_interactive() -> None:
+    """Guided sub-menu for viewing and editing blocked times within interactive mode."""
+    while True:
+        app.print("\n[bold cyan]Blocked times[/bold cyan]")
+        blocked_list()
+
+        try:
+            choice = typer.prompt("[a]dd  [r]emove  [b]ack", default="b").strip().lower()
+        except (KeyboardInterrupt, EOFError):
+            app.print()
+            return
+
+        if choice in ("b", "back", ""):
+            return
+
+        if choice in ("a", "add"):
+            label = typer.prompt("Label").strip()
+            if not label:
+                err.print("[red]✗ Label cannot be empty.[/red]")
+                continue
+
+            while True:
+                day_list = _parse_days(typer.prompt("Days (comma, e.g. mon,wed,fri)"))
+                if day_list is not None:
+                    break
+                err.print("[red]✗ Unknown day(s).[/red] Use mon/tue/wed/thu/fri/sat/sun.")
+
+            while True:
+                start = typer.prompt("Start (HH:MM)").strip()
+                if _valid_hhmm(start):
+                    break
+                err.print("[red]✗ Invalid time.[/red] Use 24-hour HH:MM, e.g. 23:00.")
+
+            while True:
+                end = typer.prompt("End (HH:MM)").strip()
+                if _valid_hhmm(end):
+                    break
+                err.print("[red]✗ Invalid time.[/red] Use 24-hour HH:MM, e.g. 07:00.")
+
+            blocked = _load_blocked()
+            blocked.append({"label": label, "days": day_list, "start_time": start, "end_time": end})
+            _save_blocked(blocked)
+            app.print(f"[bold green]✓[/bold green]  Added block: [bold]{label}[/bold] {','.join(day_list)} {start}–{end}")
+
+        elif choice in ("r", "remove"):
+            label   = typer.prompt("Label to remove").strip()
+            blocked = _load_blocked()
+            updated = [b for b in blocked if b["label"].lower() != label.lower()]
+            if len(updated) == len(blocked):
+                err.print(f"[red]✗ No block found with label '{label}'.[/red]")
+                continue
+            _save_blocked(updated)
+            app.print(f"[bold green]✓[/bold green]  Removed block: [bold]{label}[/bold]")
+
+        else:
+            err.print("[red]✗ Unknown option.[/red] Type a, r, or b.")
 
 
 # ---------------------------------------------------------------------------

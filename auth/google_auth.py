@@ -10,6 +10,7 @@
 """
 
 from pathlib import Path
+from google.auth.exceptions import RefreshError
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -36,11 +37,18 @@ def get_credentials() -> Credentials:
         return creds
 
     if creds and creds.expired and creds.refresh_token:
-        creds.refresh(Request())
-        _save_token(creds)
-        return creds
+        try:
+            creds.refresh(Request())
+            _save_token(creds)
+            return creds
+        except RefreshError:
+            # Refresh token itself was revoked/expired (common when the OAuth
+            # app is in "Testing" status — Google expires these after 7 days).
+            # Discard the dead token and fall through to a fresh browser login.
+            TOKEN_PATH.unlink(missing_ok=True)
+            creds = None
 
-    # First-time auth: open browser
+    # First-time auth (or recovery from a revoked token): open browser
     if not CREDENTIALS_PATH.exists():
         raise FileNotFoundError(
             f"credentials.json not found at {CREDENTIALS_PATH}.\n"
